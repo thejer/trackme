@@ -125,7 +125,7 @@ class TrackerActivity :
         viewModel.openConnection(
             "ios-test.printful.lv",
             6111,
-            "jerryb.adeleye@gmail.com"
+            "email@address.com"
         )
     }
 

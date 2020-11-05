@@ -20,4 +20,4 @@ I observed the ViewModel's LiveData objects in the Activity's onCreate method, s
 ## Demo
 Here is a Demo of the app
 
-[demo](demo.gif "Demo")
+![demo](demo.gif "Demo")

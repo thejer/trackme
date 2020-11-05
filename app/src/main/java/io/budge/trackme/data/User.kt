@@ -1,7 +1,6 @@
 package io.budge.trackme.data
 
 import android.graphics.Bitmap
-import android.graphics.drawable.Drawable
 
 data class User(
     val id: Int,

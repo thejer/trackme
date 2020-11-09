@@ -16,6 +16,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import io.budge.trackme.data.User
+import io.budge.trackme.utils.getAddress
 import kotlinx.android.synthetic.main.activity_tracker.*
 import kotlin.math.abs
 import kotlin.math.sign
@@ -67,7 +68,7 @@ class TrackerActivity :
                 val marker = markersMap[it.id]
                 val user = marker?.tag as User
                 user.location = it
-                user.address = viewModel.getAddress(it.lat, it.lng)
+                user.address = getAddress(it.lat, it.lng, this)
                 marker.tag = user
                 markersMap[it.id] = marker
                 if (marker.isInfoWindowShown) {
@@ -122,10 +123,10 @@ class TrackerActivity :
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
         mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
-        viewModel.openConnection(
+        viewModel.startConnection(
             "ios-test.printful.lv",
             6111,
-            "email@address.com"
+            "jerryb.adeleye@gmail.com"
         )
     }
 
@@ -158,7 +159,7 @@ class TrackerActivity :
         if (openOnResume) {
             val cameraUpdate = CameraUpdateFactory.newLatLngZoom(LatLng(0.0,0.0), 1f)
             mMap.animateCamera(cameraUpdate)
-            viewModel.openConnection(
+            viewModel.startConnection(
                 "ios-test.printful.lv",
                 6111,
                 "jerryb.adeleye@gmail.com"

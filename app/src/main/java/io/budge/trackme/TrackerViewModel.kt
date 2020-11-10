@@ -38,20 +38,18 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
     private val messageProcessor = MessageProcessor(context)
 
-    private var socketManager = SocketManager(object : SocketManager.ResponseCallbacks {
-        override fun onResponse(result: Result<Any>) {
-            when (result) {
-                is Result.Success -> {
-                    process(result)
-                }
-                is Result.Error -> {
-                    _errorMessage.postValue(result.exception.message)
-                    _isLoading.postValue(false)
-                }
+    private var socketManager = SocketManager {
+        when (it) {
+            is Result.Success -> {
+                process(it)
+            }
+            is Result.Error -> {
+                _errorMessage.postValue(it.exception.message)
+                _isLoading.postValue(false)
             }
         }
 
-    })
+    }
 
     private fun process(result: Result.Success<Any>) {
         viewModelScope.launch {

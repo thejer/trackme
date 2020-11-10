@@ -116,8 +116,8 @@ class TrackerActivity :
 
     override fun onPause() {
         super.onPause()
-        for (marker in markersMap.values) marker.remove()
         viewModel.closeConnection()
+        for (marker in markersMap.values) marker.remove()
         finish()
     }
 

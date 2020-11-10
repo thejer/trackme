@@ -1,7 +1,6 @@
 package io.budge.trackme
 
 import android.app.Application
-import android.util.Log.e
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -13,7 +12,9 @@ import io.budge.trackme.utils.Constants.UPDATE_PREFIX
 import io.budge.trackme.utils.Constants.USER_LIST_PREFIX
 import io.budge.trackme.utils.MessageProcessor
 import io.budge.trackme.utils.SocketManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 class TrackerViewModel(application: Application) : AndroidViewModel(application) {
@@ -41,12 +42,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         override fun onResponse(result: Result<Any>) {
             when (result) {
                 is Result.Success -> {
-                    e("Success", result.data)
-                    _isLoading.postValue(false)
                     process(result)
                 }
                 is Result.Error -> {
-                    result.exception.message?.let { e("Error", it) }
                     _errorMessage.postValue(result.exception.message)
                     _isLoading.postValue(false)
                 }
@@ -56,30 +54,36 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     })
 
     private fun process(result: Result.Success<Any>) {
-        e("process", result.data)
         viewModelScope.launch {
-            val isUserList = result.data.startsWith(USER_LIST_PREFIX)
-            val isUpdate = result.data.startsWith(UPDATE_PREFIX)
-            try {
-                if (isUserList) {
-                    val usersString = result.data.removePrefix(USER_LIST_PREFIX).trim().removeSuffix(";")
-                    val users = messageProcessor.processUserList(usersString)
-                    _userList.value = users
-                } else if (isUpdate) {
-                    val updateString = result.data.removePrefix(UPDATE_PREFIX).trim()
-                    val locationUpdate = messageProcessor.processLocationUpdate(updateString)
-                    _locationUpdate.value = locationUpdate
+            withContext(Dispatchers.IO) {
+                val isUserList = result.data.startsWith(USER_LIST_PREFIX)
+                val isUpdate = result.data.startsWith(UPDATE_PREFIX)
+                try {
+                    if (isUserList) {
+                        val usersString =
+                            result.data.removePrefix(USER_LIST_PREFIX).trim().removeSuffix(";")
+                        val users = messageProcessor.processUserList(usersString)
+                        _isLoading.postValue(false)
+                        _userList.postValue(users)
+                    } else if (isUpdate) {
+                        val updateString = result.data.removePrefix(UPDATE_PREFIX).trim()
+                        val locationUpdate = messageProcessor.processLocationUpdate(updateString)
+                        _isLoading.postValue(false)
+                        _locationUpdate.postValue(locationUpdate)
+                    }
+                    socketManager.readInputStream()
+                } catch (e: Exception) {
+                    if (e is NumberFormatException) {
+                        _errorMessage.postValue(INVALID_MESSAGE_FORMAT)
+                    }
+                    _isLoading.postValue(false)
                 }
-            } catch (e: NumberFormatException) {
-                _errorMessage.postValue(INVALID_MESSAGE_FORMAT)
-                _isLoading.postValue(false)
             }
         }
     }
 
     fun startConnection(ipAddress: String, port: Int) {
         _isLoading.postValue(true)
-        e("startConnection", "start")
         viewModelScope.launch {
             socketManager.openConnection(ipAddress, port)
         }

@@ -1,6 +1,5 @@
 package io.budge.trackme.utils
 
-import android.util.Log.e
 import io.budge.trackme.data.Result
 import io.budge.trackme.utils.Constants.AUTHORIZE_COMMAND
 import kotlinx.coroutines.Dispatchers
@@ -16,7 +15,6 @@ class SocketManager(private val responseCallbacks: ResponseCallbacks) {
 
     suspend fun openConnection(ipAddress: String, port: Int) {
         isConnectionOpen = true
-        e("openConnection", isConnectionOpen.toString())
         withContext(Dispatchers.IO) {
             while (isConnectionOpen) {
                 try {
@@ -28,31 +26,28 @@ class SocketManager(private val responseCallbacks: ResponseCallbacks) {
                         outWriter = PrintWriter(BufferedWriter(outputStreamWriter), true)
                         inReader = BufferedReader(inputStreamReader)
                         sendMessage(AUTHORIZE_COMMAND)
-                        while (isConnectionOpen) {
-                            inReader?.let {
-                                val response = it.readLine()
-                            responseCallbacks.onResponse(Result.Success(response.trim()))
-                            }
-                        }
+                        readInputStream()
                     } catch (e: Exception) {
-                        e("sendMessage", "2 $e")
                         socket.close()
                         responseCallbacks.onResponse(Result.Error(e))
                         continue
                     }
-                    socket.close()
                     break
                 } catch (e: Exception) {
-                    e("sendMessage", "1 $e")
                     responseCallbacks.onResponse(Result.Error(e))
                 }
             }
         }
     }
 
+    fun readInputStream(){
+        inReader?.let {
+            val response = it.readLine()
+            responseCallbacks.onResponse(Result.Success(response.trim()))
+        }
+    }
 
     fun closeConnection() {
-        e("closeConnection", "close")
         isConnectionOpen = false
         outWriter?.apply {
             flush()
@@ -64,7 +59,6 @@ class SocketManager(private val responseCallbacks: ResponseCallbacks) {
 
 
     private fun sendMessage(message: String) {
-        e("sendMessage", message)
         if (outWriter?.checkError() != false) return
         outWriter?.apply {
             println(message)

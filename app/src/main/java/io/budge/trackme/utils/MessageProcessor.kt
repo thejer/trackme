@@ -1,7 +1,6 @@
 package io.budge.trackme.utils
 
 import android.content.Context
-import android.util.Log.e
 import com.google.android.gms.maps.model.LatLng
 import io.budge.trackme.data.User
 import kotlinx.coroutines.Dispatchers
@@ -10,7 +9,6 @@ import kotlinx.coroutines.withContext
 
 class MessageProcessor(private val context: Context) {
 
-    @Throws(NumberFormatException::class)
     suspend fun processUserList(message: String): MutableList<User> {
         val users = mutableListOf<User>()
         withContext(Dispatchers.IO) {
@@ -37,13 +35,11 @@ class MessageProcessor(private val context: Context) {
                 )
 
                 users.add(newUser)
-                e("processUserList", users.toString())
             }
         }
         return users
     }
 
-    @Throws(NumberFormatException::class)
     fun processLocationUpdate(message: String): User.UserLocation {
         val updateObject = message.split(",")
         val id = updateObject[0].trim().toInt()

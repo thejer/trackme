@@ -121,19 +121,6 @@ class TrackerActivity :
         finish()
     }
 
-//    override fun onResume() {
-//        super.onResume()
-//        if (openOnResume) {
-//            val cameraUpdate = CameraUpdateFactory.newLatLngZoom(LatLng(0.0,0.0), 1f)
-//            mMap.animateCamera(cameraUpdate)
-//            viewModel.startConnection(
-//                "ios-test.printful.lv",
-//                6111,
-//                "jerryb.adeleye@gmail.com"
-//            )
-//        }
-//    }
-
     override fun onMarkerClick(p0: Marker?): Boolean {
         return false
     }

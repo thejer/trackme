@@ -5,6 +5,8 @@
 .DS_Store
 *jks
 /build
+app/release
+app/debug
 /captures
 .externalNativeBuild
 .cxx

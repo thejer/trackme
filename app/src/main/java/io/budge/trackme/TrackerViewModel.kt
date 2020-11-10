@@ -1,28 +1,24 @@
 package io.budge.trackme
 
 import android.app.Application
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.location.Address
-import android.location.Geocoder
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import io.budge.trackme.data.Result
 import io.budge.trackme.data.User
+import io.budge.trackme.utils.Constants.INVALID_MESSAGE_FORMAT
+import io.budge.trackme.utils.Constants.UPDATE_PREFIX
+import io.budge.trackme.utils.Constants.USER_LIST_PREFIX
+import io.budge.trackme.utils.MessageProcessor
+import io.budge.trackme.utils.SocketManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.*
-import java.net.Socket
-import java.net.URL
-import java.util.*
 
 
 class TrackerViewModel(application: Application) : AndroidViewModel(application) {
     private val context = getApplication<Application>().applicationContext
-
 
     private val _userList = MutableLiveData<MutableList<User>>()
     val userList: LiveData<MutableList<User>>
@@ -40,130 +36,60 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     val isLoading: LiveData<Boolean>
         get() = _isLoading
 
-    private var isConnectionOpen = false
-    private var outWriter: PrintWriter? = null
-    private var inReader: BufferedReader? = null
+    private val messageProcessor = MessageProcessor(context)
 
-    fun openConnection(ipAddress: String, port: Int, emailAddress: String) {
-        isConnectionOpen = true
-        _isLoading.postValue(true)
+    private var socketManager = SocketManager(object : SocketManager.ResponseCallbacks {
+        override fun onResponse(result: Result<Any>) {
+            when (result) {
+                is Result.Success -> {
+                    process(result)
+                }
+                is Result.Error -> {
+                    _errorMessage.postValue(result.exception.message)
+                    _isLoading.postValue(false)
+                }
+            }
+        }
+
+    })
+
+    private fun process(result: Result.Success<Any>) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                while (isConnectionOpen) {
-                    try {
-                        val socket = Socket(ipAddress, port)
-                        try {
-                            val outputStreamWriter =
-                                OutputStreamWriter(socket.getOutputStream())
-                            val inputStreamReader = InputStreamReader(socket.getInputStream())
-                            outWriter = PrintWriter(BufferedWriter(outputStreamWriter), true)
-                            inReader = BufferedReader(inputStreamReader)
-                            authenticate(emailAddress)
-                            while (isConnectionOpen) {
-                                inReader?.let {
-                                    val response = it.readLine()
-                                    processResponse(response.trim())
-                                }
-                            }
-                        } catch (e: Exception) {
-                            _isLoading.postValue(false)
-                                _errorMessage.postValue(e.message)
-                            socket.close()
-                            continue
-                        }
-                        socket.close()
-                        break
-                    } catch (e: Exception) {
-                        _errorMessage.postValue(e.message)
+                val isUserList = result.data.startsWith(USER_LIST_PREFIX)
+                val isUpdate = result.data.startsWith(UPDATE_PREFIX)
+                try {
+                    if (isUserList) {
+                        val usersString =
+                            result.data.removePrefix(USER_LIST_PREFIX).trim().removeSuffix(";")
+                        val users = messageProcessor.processUserList(usersString)
                         _isLoading.postValue(false)
+                        _userList.postValue(users)
+                    } else if (isUpdate) {
+                        val updateString = result.data.removePrefix(UPDATE_PREFIX).trim()
+                        val locationUpdate = messageProcessor.processLocationUpdate(updateString)
+                        _isLoading.postValue(false)
+                        _locationUpdate.postValue(locationUpdate)
                     }
+                    socketManager.readInputStream()
+                } catch (e: Exception) {
+                    if (e is NumberFormatException) {
+                        _errorMessage.postValue(INVALID_MESSAGE_FORMAT)
+                    }
+                    _isLoading.postValue(false)
                 }
             }
         }
     }
 
-    fun getAddress(lat: Double, lng: Double): String {
-        val addresses: List<Address>
-        val geoCoder = Geocoder(context, Locale.getDefault())
-
-        addresses = geoCoder.getFromLocation(
-            lat,
-            lng,
-            1)
-
-        val address = addresses[0]
-        val fullAddress = address.getAddressLine(0)
-        return fullAddress
-    }
-
-    private suspend fun processResponse(response: String) {
-        withContext(Dispatchers.IO) {
-            val isUserList = response.startsWith("USERLIST")
-            val isUpdate = response.startsWith("UPDATE")
-            if (isUserList) {
-                val usersString = response.removePrefix("USERLIST").trim().removeSuffix(";")
-                val usersStringList = usersString.split(";")
-                val users = mutableListOf<User>()
-                for ((index, userString) in usersStringList.withIndex()) {
-                    val userObject = userString.split(",")
-                    val imageUrl = userObject[2].trim()
-
-                    val imageBitmap = async { getBitmap(imageUrl) }
-                    val lat = userObject[3].trim().toDouble()
-                    val lng = userObject[4].trim().toDouble()
-                    val location = User.UserLocation(
-                        userObject[0].trim().toInt(),
-                        lat,
-                        lng
-                    )
-                    val newUser = User(
-                        userObject[0].trim().toInt(),
-                        userObject[1].trim(),
-                        imageUrl,
-                        getAddress(lat, lng),
-                        imageBitmap.await(),
-                        location
-                    )
-
-                    users.add(newUser)
-                }
-                _isLoading.postValue(false)
-                _userList.postValue(users)
-            } else if (isUpdate) {
-                val updateString = response.removePrefix("UPDATE").trim()
-                val updateObject = updateString.split(",")
-                val id = updateObject[0].trim().toInt()
-                val location = User.UserLocation(
-                    id,
-                    updateObject[1].trim().toDouble(),
-                    updateObject[2].trim().toDouble()
-                )
-                _locationUpdate.postValue(location)
-            }
+    fun startConnection(ipAddress: String, port: Int) {
+        _isLoading.postValue(true)
+        viewModelScope.launch {
+            socketManager.openConnection(ipAddress, port)
         }
-    }
-
-    private fun getBitmap(imageUrl: String): Bitmap? {
-        val url = URL(imageUrl)
-        val inputStream: InputStream = url.openStream()
-        return BitmapFactory.decodeStream(inputStream)
     }
 
     fun closeConnection() {
-        isConnectionOpen = false
-        outWriter?.apply {
-            flush()
-            close()
-        }
-        outWriter = null
-        inReader = null
-    }
-
-    private fun authenticate(emailAddress: String) {
-        if (outWriter?.checkError() != false) return
-        outWriter?.apply {
-            println("AUTHORIZE $emailAddress")
-            flush()
-        }
+        socketManager.closeConnection()
     }
 }

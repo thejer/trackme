@@ -7,7 +7,7 @@ import kotlinx.coroutines.withContext
 import java.io.*
 import java.net.Socket
 
-class SocketManager(private val responseCallbacks: ResponseCallbacks) {
+class SocketManager(private val onResponse: (Result<Any>) -> Unit) {
 
     private var isConnectionOpen = false
     private var outWriter: PrintWriter? = null
@@ -29,12 +29,12 @@ class SocketManager(private val responseCallbacks: ResponseCallbacks) {
                         readInputStream()
                     } catch (e: Exception) {
                         socket.close()
-                        responseCallbacks.onResponse(Result.Error(e))
+                        onResponse(Result.Error(e))
                         continue
                     }
                     break
                 } catch (e: Exception) {
-                    responseCallbacks.onResponse(Result.Error(e))
+                    onResponse(Result.Error(e))
                 }
             }
         }
@@ -43,7 +43,7 @@ class SocketManager(private val responseCallbacks: ResponseCallbacks) {
     fun readInputStream(){
         inReader?.let {
             val response = it.readLine()
-            responseCallbacks.onResponse(Result.Success(response.trim()))
+            onResponse(Result.Success(response.trim()))
         }
     }
 
@@ -64,9 +64,5 @@ class SocketManager(private val responseCallbacks: ResponseCallbacks) {
             println(message)
             flush()
         }
-    }
-
-    interface ResponseCallbacks {
-        fun onResponse(result: Result<Any>)
     }
 }

@@ -27,9 +27,10 @@ class CustomInfoWindowAdapter(context: Context) : GoogleMap.InfoWindowAdapter {
 
     private fun render(marker: Marker, view: View) {
         val userObject = marker.tag as User
-        val userImage = view.findViewById<ImageView>(R.id.user_image)
+
         val userName = view.findViewById<TextView>(R.id.user_name)
         val userAddress = view.findViewById<TextView>(R.id.user_address)
+        val userImage = view.findViewById<ImageView>(R.id.user_image)
 
         userName.text = userObject.fullName
         userAddress.text = userObject.address

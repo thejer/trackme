@@ -7,5 +7,5 @@ object Constants {
     const val UPDATE_PREFIX = "UPDATE"
     const val USER_LIST_PREFIX = "USERLIST"
     const val INVALID_MESSAGE_FORMAT = "Invalid response format"
-    const val AUTHORIZE_COMMAND = "AUTHORIZE jerryb.adeleye@gmail.com"
+    const val AUTHORIZE_COMMAND = "AUTHORIZE email.address@domain.com"
 }
